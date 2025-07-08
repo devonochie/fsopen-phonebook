@@ -1,0 +1,23 @@
+GET http://localhost:3001/api/persons/678cde85a0313bd00699243f
+###
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+   {   
+     "name": "Mr Mongoose", 
+     "number": "091234556"
+   }
+
+###
+DELETE http://localhost:3001/api/persons/678e25d49ef26d660a866196
+
+###
+PUT http://localhost:3001/api/persons/678cde85a0313bd00699243f
+
+   {   
+     "name": "Mr Prepos", 
+     "number": "48-585105"
+   }
+
+###
+GET http://localhost:3001/info

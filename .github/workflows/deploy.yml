@@ -1,0 +1,139 @@
+name: Deployment phonebook
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  simple_deployment_phonebook:
+    name: Build and Prepare App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }} 
+
+      - name: Copy frontend build to backend
+        run: |
+          rm -rf backend/dist
+          cp -r frontend/dist backend/
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Start server
+        run: |
+          cd backend
+          npm start &
+          sleep 5 # Optional: give it a moment to start
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+
+      - name: Notify Test Success
+        if: success()
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            ✅ CI Passed!
+            Branch: `${{ github.ref_name }}`
+            Commit: [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            Actor: ${{ github.actor }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Notify Test Failure
+        if: failure()
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            ❌ CI Failed!
+            Branch: `${{ github.ref_name }}`
+            Commit: [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            Actor: ${{ github.actor }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Notify Test Cancelled
+        if: cancelled()
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            ⚠️ CI Cancelled!
+            Branch: `${{ github.ref_name }}`
+            Commit: [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            Actor: ${{ github.actor }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+  deploy_to_render:
+    name: Deploy to Render
+    needs: simple_deployment_phonebook
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment
+        uses: sws2apps/render-deployment@main
+        with:
+          serviceId: ${{ secrets.RENDER_SERVICE_ID }}
+          apiKey: ${{ secrets.RENDER_API_KEY }}
+
+  health_check:
+    name: Check the deployed service URL
+    needs: deploy_to_render
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check service health
+        uses: jtalk/url-health-check-action@v4
+        with:
+          url: https://phone-book-gzt5.onrender.com
+          follow-redirect: false
+          max-attempts: 3
+          retry-delay: 5s
+          retry-all: false
+
+  notify_success:
+    name: Notify Deployment Success
+    needs: health_check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Success on Discord
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            🚀 Deployment succeeded and passed health check!
+            ✅ Live: https://phone-book-gzt5.onrender.com
+            Branch: `${{ github.ref_name }}`
+            Commit: [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            Actor: ${{ github.actor }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
