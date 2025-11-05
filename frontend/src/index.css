@@ -1,31 +1,4 @@
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid #000;
-  padding: 0.3em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #fff;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  background-color: #646cff;
-}
 .phonebook-app {
   max-width: 600px;
   margin: 0 auto;
